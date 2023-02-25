@@ -17,7 +17,7 @@ final class Weddinguser: Model, Content {
     var emailaddress: String
 
     @Field(key: "note")
-    var note: String
+    var note: String?
 
     init() { }
 
