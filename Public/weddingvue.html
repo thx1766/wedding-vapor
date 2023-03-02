@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check Name</title>
+    <script src="https://unpkg.com/vue@next"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <h1>Check Your Name</h1>
+        <form @submit.prevent="checkName">
+            <label for="name">Name:</label>
+            <input type="text" id="name" v-model="name" required>
+            <button type="submit">Check</button>
+        </form>
+        <div v-if="result">
+            <div v-if="result.attending === 'unset'">
+                <p>Your name is on the list but your attendance is not confirmed yet.</p>
+                <h2>Confirm Attendance</h2>
+                <p>Do you confirm your attendance?</p>
+                <button @click="confirmAttendance(true)">Yes</button>
+                <button @click="confirmAttendance(false)">No</button>
+                <p v-if="attendanceConfirmationError">{{ attendanceConfirmationError }}</p>
+            </div>
+            <div v-if="result.attending === 'attending'">
+                <p>You're on the list and confirmed to attend.</p>
+                <h2>Change Attendance</h2>
+                <p>Do you want to cancel your attendance?</p>
+                <button @click="confirmAttendance(false)">Cancel</button>
+                <button @click="confirmAttendance(true)">Don't Cancel</button>
+                <p v-if="attendanceConfirmationError">{{ attendanceConfirmationError }}</p>
+            </div>
+            
+            <div v-if="result.attending === 'not attending'">
+                <p>You're on the list but not attending.</p>
+                <h2>Change Attendance</h2>
+                <p>Do you want to attend?</p>
+                <button @click="confirmAttendance(true)">Attend</button>
+                <button @click="confirmAttendance(false)">Don't Attend</button>
+                <p v-if="attendanceConfirmationError">{{ attendanceConfirmationError }}</p>
+            </div>
+            <p v-if="result.attending === 'notfound'">You're not on the list.</p>
+            <p v-if="error">{{ error }}</p>
+        </div>
+        
+        <div v-if="isAdmin">
+            <h2>Add Guest</h2>
+            <form @submit.prevent="addGuest">
+                <label for="guest-name">Name:</label>
+                <input type="text" id="guest-name" v-model="guestName" required>
+                <button type="submit">Add</button>
+                <p v-if="addGuestError">{{ addGuestError }}</p>
+            </form>
+            <form @submit.prevent="getVueusers"><button type="submit">Populate</button></form>
+            <h2>Guest List</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Confirmation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="guest in guestList" :key="guest.id">
+                        <td>{{ guest.fullname }}</td>
+                        <td>{{ guest.attending }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <form v-if="!isAdmin" @submit.prevent="login">
+            <!--
+            <label for="username">Username:</label>
+            <input type="text" id="username" v-model="username" required>
+            <label for="password">Password:</label>
+            <input type="password" id="password" v-model="password" required>
+            -->
+            <button type="submit">Admin</button>
+            <p v-if="loginError">{{ loginError }}</p>
+        </form>
+        <form v-if="isAdmin" @submit.prevent="logout">
+            <button type="submit">Logout</button>
+        </form>
+        
+    </div>
+    <script>
+        const app = Vue.createApp({
+            data() {
+                return {
+                    name: '',
+                    result: null,
+                    error: null,
+                    attendanceConfirmationError: null,
+                    isAdmin: false,
+                    username: '',
+                    password: '',
+                    loginError: null,
+                    guestName: '',
+                    //guestConfirmation: 'unconfirmed',
+                    addGuestError: null,
+                    guestList: [],
+                    //debugAdmin = 'no'
+                }
+            },
+            methods: {
+                getVueusers(){
+                    this.guests = []
+                    axios.get('http://3.236.74.2:8080/listvue')
+                    .then(response => {
+                        this.guestList = response.data
+                    })
+                    .catch(error => {
+                        this.error = error.response.data.error
+                    })
+                },
+                checkName() {
+                    axios.post('http://3.236.74.2:8080/checkvue', { fullname: this.name })
+                        .then(response => {
+                            this.result = response.data
+                            this.error = null
+                        })
+                        .catch(error => {
+                            this.error = error.response.data.error
+                            this.result = null
+                        })
+                },
+                confirmAttendance(attendance) {
+                    axios.post('http://3.236.74.2:8080/confirmvue', { fullname: this.name, attendance: attendance })
+                        .then(response => {
+                            //this.result.confirmation = response.data.confirmation
+                            this.result.attending = response.data.attending
+                            this.attendanceConfirmationError = null
+                        })
+                        .catch(error => {
+                            this.attendanceConfirmationError = error.response.data.error
+                        })
+                },
+                login() {
+                    this.loginError = null;
+                    /*
+                     axios.post('/api/login', {
+                        username: this.username,
+                        password: this.password,
+                    })
+                    .then(response => {
+                        this.isAdmin = true;
+                        this.guestList = response.data;
+                    })
+                    .catch(error => {
+                        this.loginError = error.response.data.error;
+                    })
+                     */
+                    this.isAdmin = true
+                },
+                logout(){
+                    this.isAdmin = false
+                },
+                addGuest() {
+                    this.addGuestError = null;
+                    axios.post('http://3.236.74.2:8080/createvue', {
+                        fullname: this.guestName
+                    })
+                    .then(response => {
+                        this.guestList.push(response.data);
+                        this.guestName = '';
+                        this.guestConfirmation = 'unconfirmed';
+                    })
+                    .catch(error => {
+                        this.addGuestError = error.response.data.error;
+                    })
+                },
+            },
+        });
+
+        app.mount('#app')
+    </script>
+</body>
+</html>
+
